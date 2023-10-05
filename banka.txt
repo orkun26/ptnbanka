@@ -1,0 +1,21 @@
+Kullanıcı Adı,İsim,Soyisim,Müşteri Numarası,Parola,Hesap Numarası,Bakiye,Banka
+john_doe,John,Doe,1,pass123,101010101,7500,ABC Bank
+jane_smith,Jane,Smith,2,securepass,202020202,12000,XYZ Bank
+ahmet_ekici,Ahmet,Ekici,3,ahmetpass,303030303,4000,DEF Bank
+michael_jones,Michael,Jones,4,mikepass,404040404,9800,GHI Bank
+selin_ozkan,Selin,Özkan,5,selinpass,505050505,6300,JKL Bank
+samuel_brown,Samuel,Brown,6,sammyb,606060606,8700,MNO Bank
+melissa_morris,Melissa,Morris,7,melissa123,707070707,11000,PQR Bank
+emre_tekin,Emre,Tekin,8,emrepass,808080808,9500,STU Bank
+ayse_ozdemir,Ayşe,Özdemir,9,ayse123,909090909,5700,VWX Bank
+ali_kaya,Ali,Kaya,10,alipass,1111111111,8300,YZA Bank
+laura_martin,Laura,Martin,11,laurapass,1212121212,6800,BCD Bank
+serkan_yilmaz,Serkan,Yılmaz,12,serkanpass,1313131313,9900,EFG Bank
+sara_gonzalez,Sara,Gonzalez,13,sarapass,1414141414,7700,HIJ Bank
+paul_wilson,Paul,Wilson,14,paulpass,1515151515,4400,KLM Bank
+nina_rodriguez,Nina,Rodriguez,15,ninapass,1616161616,6300,NOP Bank
+alex_hernandez,Alex,Hernandez,16,alexpass,1717171717,9000,QRS Bank
+david_lewis,David,Lewis,17,davidpass,1818181818,7200,TUV Bank
+cristina_silva,Cristina,Silva,18,cristinapass,1919191919,10500,WXY Bank
+yusuf_aktas,Yusuf,Aktaş,19,yusufpass,2020202020,4800,ZAB Bank
+leyla_yilmaz,Leyla,Yılmaz,20,leylapass,2121212121,6300,DEF Bank

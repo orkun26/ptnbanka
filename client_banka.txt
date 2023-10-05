@@ -1,0 +1,240 @@
+#include <iostream>
+#include <string>
+#include <WS2tcpip.h> // Winsock kütüphanesi
+#pragma comment(lib, "ws2_32.lib") // Winsock kütüphanesi için bağlantı
+
+using namespace std;
+
+struct ClientData {
+    string kullaniciAdi;
+    string parola;
+};
+
+struct TransactionData {
+    int miktar;          // Gonderilecek, cekilecek veya yatirilacak miktar
+    string hesapNo;       // Hedef hesap numarasi
+};
+
+
+// Bakiyeyi al ve ekrana yaz
+void bakiyeAl(SOCKET sock) {
+    int bakiye;
+    int bytesReceived4 = recv(sock, (char*)&bakiye, sizeof(int), 0);
+    if (bytesReceived4 == SOCKET_ERROR) {
+        cerr << "Bakiye alınamadı, hata kodu: " << WSAGetLastError() << endl;
+    }
+    else if (bytesReceived4 == 0) {
+        cout << "Sunucu bağlantısı kapandı." << endl;
+    }
+    else {
+        cout << "Hesap bakiyesi: " << bakiye << endl;
+    }
+}
+
+void receiveCompletionMessage(SOCKET serverSocket) {
+    const int bufferSize = 1024;
+    char buffer[bufferSize];
+    int bytesReceived = recv(serverSocket, buffer, bufferSize, 0);
+    if (bytesReceived > 0) {
+        buffer[bytesReceived] = '\0';
+        std::cout << "Sunucudan gelen mesaj: " << buffer << std::endl;
+    }
+}
+
+
+int main() {
+    string Host = "127.0.0.1"; // Sunucunun IP adresi
+    int port = 5004; // Sunucu portu
+
+    // Winsock'u başlat
+    WSAData data;
+    WORD ver = MAKEWORD(2, 2);
+    int wsResult = WSAStartup(ver, &data);
+    if (wsResult != 0) {
+        cerr << "Winsock başlatılamadı, hata kodu: " << wsResult << endl;
+        return 1;
+    }
+
+    // Soket oluştur
+    SOCKET sock = socket(AF_INET, SOCK_STREAM, 0);
+    if (sock == INVALID_SOCKET) {
+        cerr << "Soket oluşturulamadı, hata kodu: " << WSAGetLastError() << endl;
+        WSACleanup();
+        return 1;
+    }
+
+    // Yapıyı doldur
+    sockaddr_in hint;
+    hint.sin_family = AF_INET;
+    hint.sin_port = htons(port);
+    inet_pton(AF_INET, Host.c_str(), &hint.sin_addr);
+
+    // Sunucuya bağlan
+    int connResult = connect(sock, (sockaddr*)&hint, sizeof(hint));
+    if (connResult == SOCKET_ERROR) {
+        cerr << "Sunucuya bağlanılamadı, hata kodu: " << WSAGetLastError() << endl;
+        closesocket(sock);
+        WSACleanup();
+        return 1;
+    }
+
+    // Kullanıcı adı ve parola girişi
+    ClientData clientData;
+    cout << "Kullanici Adi: ";
+    cin >> clientData.kullaniciAdi;
+    cout << "Parola: ";
+    cin >> clientData.parola;
+
+    // Veriyi gönder
+    int sendResult = send(sock, (char*)&clientData, sizeof(clientData), 0);
+    if (sendResult == SOCKET_ERROR) {
+        cerr << "Veri gönderilemedi, hata kodu: " << WSAGetLastError() << endl;
+        closesocket(sock);
+        WSACleanup();
+        return 1;
+    }
+
+    // Diğer işlemler...
+
+
+
+
+
+    
+
+
+    // Yanıtı al
+    int response;
+    int bytesReceived = recv(sock, (char*)&response, sizeof(response), 0);
+    if (bytesReceived == SOCKET_ERROR) {
+        cerr << "Yanıt alınamadı, hata kodu: " << WSAGetLastError() << endl;
+    }
+    else {
+        // Yanıtı işle
+        if (response == 1) {
+            cout << "Kullanici dogrulama basarili.\n";
+            bakiyeAl(sock);
+
+
+
+
+            /*__________*/
+
+
+
+            int numara;
+            cout << "para gondermek icin 1 \npara cekmek icin 2 \npara yatirmak icin 3'e bas.\n";
+            cin >> numara;
+
+            // Numarayı sunucuya gönder
+            int sendNumResult = send(sock, (char*)&numara, sizeof(numara), 0);
+
+            if (sendNumResult == SOCKET_ERROR) {
+                cerr << "Numara gönderilemedi, hata kodu: " << WSAGetLastError() << endl;
+                closesocket(sock);
+                WSACleanup();
+                return 1;
+            }
+
+            if (numara == 1) {
+            
+                int gonderilecekMiktar;
+                string hedefHesapNo;
+
+                cout << "Gonderilecek miktar: ";
+                cin >> gonderilecekMiktar;
+                cout << "Hedef hesap numarasi: ";
+                cin >> hedefHesapNo;
+
+                
+                    TransactionData transactionData;
+
+                    // Diğer işlemler...
+
+                    // Gönderilecek miktar ve hedef hesap numarasını al
+                    transactionData.miktar = gonderilecekMiktar;
+                    transactionData.hesapNo = hedefHesapNo;
+
+                    // Verileri sunucuya gönders
+                    int sendResult = send(sock, (char*)&transactionData, sizeof(transactionData), 0);
+
+                    // Hata kontrolü...
+                    receiveCompletionMessage(sock);
+                    bakiyeAl(sock);
+
+            
+            
+            }
+
+            else if (numara == 2) {
+            
+                int cekilecekMiktar;
+
+                cout << "Cekilecek miktar: ";
+                cin >> cekilecekMiktar;
+
+
+                TransactionData transactionData;
+
+                // Diğer işlemler...
+
+                // Çekilecek miktarı al
+                transactionData.miktar = cekilecekMiktar;
+
+                // Verileri sunucuya gönder
+                int sendResult = send(sock, (char*)&transactionData, sizeof(transactionData), 0);
+
+                // Hata kontrolü...
+                receiveCompletionMessage(sock);
+                bakiyeAl(sock);
+
+                
+            
+            }
+
+            else if (numara == 3) {
+            
+                int yatirilanMiktar;
+
+                cout << "Yatirilan miktar: ";
+                cin >> yatirilanMiktar;
+
+                TransactionData transactionData;
+
+                // Diğer işlemler...
+
+                // Yatırılacak miktarı al
+                transactionData.miktar = yatirilanMiktar;
+
+                // Verileri sunucuya gönder
+                int sendResult = send(sock, (char*)&transactionData, sizeof(transactionData), 0);
+
+                // Hata kontrolü...
+                receiveCompletionMessage(sock);
+                bakiyeAl(sock);
+            
+            }
+
+            else {
+                cout << "Hatali numara girdisi.\n";
+            }
+
+
+            /*__________*/
+
+
+
+        }
+        else {
+            cout << "Kullanici dogrulama basarisiz.\n";
+        }
+    }
+
+    // Tüm bağlantıları kapat
+    closesocket(sock);
+    WSACleanup();
+
+    return 0;
+}
+
+

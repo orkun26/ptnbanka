@@ -1,0 +1,433 @@
+#include <iostream>
+#include <fstream>
+#include <sstream>
+#include <string>
+#include <vector>
+#include <WS2tcpip.h>
+
+#pragma comment (lib, "ws2_32.lib")
+
+
+using namespace std;  // std namespace kullanımı
+
+int custom_stoi(const string& str);
+int numara;
+int response;
+
+struct UserData {
+    string kullaniciAdi;
+    string isim;
+    string soyisim;
+    int musteriNo ;
+    string parola;
+    string hesapNo;
+    int bakiye ;
+    string banka;
+};
+
+struct TransactionData {
+    int miktar;          // Gonderilecek, cekilecek veya yatirilacak miktar
+    string hesapNo;       // Hedef hesap numarasi
+};
+
+vector<UserData> parseFile(const string& fileName) {
+    vector<UserData> userDataList;
+    ifstream file(fileName);
+
+    if (!file.is_open()) {
+        cerr << "Dosya acilamadi: " << fileName << endl;
+        return userDataList;
+    }
+
+    string line;
+    while (getline(file, line)) {
+        if (line.empty())
+            continue;
+
+        stringstream ss(line);
+        string token;
+        UserData userData;
+        int i = 0;
+
+
+
+        while (getline(ss, token, ',')) {
+            switch (i) {
+            case 0:
+                userData.kullaniciAdi = token;
+                break;
+            case 1:
+                userData.isim = token;
+                break;
+            case 2:
+                userData.soyisim = token;
+                break;
+            case 3:
+                userData.musteriNo = custom_stoi(token);
+                break;
+            case 4:
+                userData.parola = token;
+                break;
+            case 5:
+                userData.hesapNo = token;
+                break;
+            case 6:
+                userData.bakiye = custom_stoi(token);
+                break;
+            case 7:
+                userData.banka = token;
+                break;
+            }
+            i++;
+        }
+
+        userDataList.push_back(userData);
+    }
+
+    file.close();
+    return userDataList;
+}
+
+int queryBalanceAndSendToClient(const vector<UserData>& userDataList, SOCKET clientSocket, const string& kullaniciAdi) {
+    int bakiye = -1;  // Varsayılan olarak -1, hesap bulunamadığında kullanılacak
+
+
+    for (const auto& userData : userDataList) {
+        if (userData.kullaniciAdi == kullaniciAdi) {
+            bakiye = userData.bakiye;
+            break;
+        }
+    }
+
+
+    // Bakiyeyi istemciye gönder
+    send(clientSocket, (char*)&bakiye, sizeof(int), 0);
+    return bakiye;
+}
+
+void sendCompletionMessage(SOCKET clientSocket) {
+    const char* completionMessage = "Islem tamamlandi.\n";
+    send(clientSocket, completionMessage, strlen(completionMessage), 0);
+}
+
+void updateUserDataInFile(const string& fileName, const vector<UserData>& userDataList) {
+    ofstream file(fileName);
+
+    if (!file.is_open()) {
+        cerr << "Dosya acilamadi: " << fileName << endl;
+        return;
+    }
+
+    for (const auto& userData : userDataList) {
+        file << userData.kullaniciAdi << ","
+            << userData.isim << ","
+            << userData.soyisim << ","
+            << userData.musteriNo << ","
+            << userData.parola << ","
+            << userData.hesapNo << ","
+            << userData.bakiye << ","
+            << userData.banka << "\n";
+    }
+
+    file.close();
+}
+
+void paraGonder(vector<UserData>& userDataList, const string& kullaniciAdi, int gonderilecekMiktar, const string& hedefHesapNo) {
+    const int komisyonMiktari = 10;  // Komisyon miktarı
+
+    for (auto& userData : userDataList) {
+        if (userData.kullaniciAdi == kullaniciAdi) {
+            if (userData.bakiye >= (gonderilecekMiktar + komisyonMiktari)) {
+                // Gönderenin bakiyesini düş
+                userData.bakiye -= (gonderilecekMiktar);
+
+                // Alıcının hesabını bul
+                for (auto& aliciKullanici : userDataList) {
+                    if (aliciKullanici.hesapNo == hedefHesapNo) {
+                        // Alıcının bakiyesini artır
+                        aliciKullanici.bakiye += gonderilecekMiktar;
+
+                        // Eğer farklı bankaya gönderiliyorsa komisyonu düş
+                        if (userData.banka != aliciKullanici.banka) {
+                            userData.bakiye -= komisyonMiktari;
+                        }
+
+                        cout << "Para başarıyla gönderildi.\n";
+                        // Dosyayı güncelle
+                        updateUserDataInFile("D:/masaüstü/banka.txt", userDataList);
+                        return;
+                    }
+                }
+
+                cout << "Hedef hesap bulunamadı.\n";
+                return;
+            }
+            else {
+                cout << "Yetersiz bakiye.\n";
+                return;
+            }
+        }
+    }
+
+    cout << "Kullanıcı bulunamadı.\n";
+}
+
+
+void paraCek(vector<UserData>& userDataList, const string& kullaniciAdi, int cekilecekMiktar) {
+    for (auto& userData : userDataList) {
+        if (userData.kullaniciAdi == kullaniciAdi) {
+            if (userData.bakiye >= cekilecekMiktar) {
+                userData.bakiye -= cekilecekMiktar;
+                cout << "Para basariyla cekildi.\n";
+                updateUserDataInFile("D:/masaüstü/banka.txt", userDataList);
+            }
+            else {
+                cout << "Yetersiz bakiye.\n";
+            }
+            return;
+        }
+    }
+
+    cout << "Kullanici bulunamadi.\n";
+}
+
+void paraYatir(vector<UserData>& userDataList, const string& kullaniciAdi, int yatirilanMiktar) {
+    for (auto& userData : userDataList) {
+        if (userData.kullaniciAdi == kullaniciAdi) {
+            userData.bakiye += yatirilanMiktar;
+            cout << "Para basariyla yatirildi.\n";
+            updateUserDataInFile("D:/masaüstü/banka.txt", userDataList);
+            return;
+        }
+    }
+
+    cout << "Kullanici bulunamadi.\n";
+}
+
+
+
+
+int custom_stoi(const std::string& str) {
+    int result = 0;
+    for (char c : str) {
+        if (c < '0' || c > '9') {
+            //cerr << "Hatali karakter: " << c << endl; -- bunu yoruma aldım. OOZTURK
+            return -1;  // Hata durumunda -1 döndürüyoruz
+        }
+        result = result * 10 + (c - '0');
+    }
+    return result;
+}
+
+// ...
+void getUserDataByCredentials(const vector<UserData>& userDataList, const string& kullaniciAdi, const string& parola) {
+    for (const auto& userData : userDataList) {
+
+
+        // 1: Başarılı, 0: Başarısız
+         response = 0;  // Başlangıçta başarısız kabul ediyoruz
+
+        if (userData.kullaniciAdi == kullaniciAdi && userData.parola == parola) {
+            cout << "Kullanici Adi: " << userData.kullaniciAdi << endl;
+            cout << "Isim: " << userData.isim << endl;
+            cout << "Soyisim: " << userData.soyisim << endl;
+            cout << "Musteri Numarasi: " << userData.musteriNo << endl;
+            cout << "Hesap Numarasi: " << userData.hesapNo << endl;
+            cout << "Bakiye: " << userData.bakiye << endl;
+            cout << "Banka: " << userData.banka << endl;
+            response = 1;  // Kullanıcı doğrulaması başarılı
+            return;
+
+        }    
+    }
+
+    cout << "Kullanici adi ve/veya parola bulunamadi." << endl;
+   
+}
+
+
+struct ClientData {
+    string kullaniciAdi;
+    string parola;
+};
+
+void processClientData(const ClientData& clientData) {
+    // Burada clientData içindeki kullaniciAdi ve parola ile gerekli işlemleri yapabilirsiniz
+    // Örneğin, bu bilgilerle kullanıcı doğrulaması yapabilir ve sonucu döndürebilirsiniz
+    // Bu örnekte sadece ekrana yazdırıyoruz.
+    cout << "Kullanici Adi: " << clientData.kullaniciAdi << endl;
+    cout << "Parola: " << clientData.parola << endl;
+}
+
+int main() {
+    // Winsock başlatma
+    WSADATA wsData;
+    WORD ver = MAKEWORD(2, 2);
+
+    int wsOk = WSAStartup(ver, &wsData);
+    if (wsOk != 0) {
+        cerr << "Winsock başlatılamadı! Çıkılıyor..." << endl;
+        return 0;
+    }
+
+    // Bir soket oluştur
+    SOCKET listening = socket(AF_INET, SOCK_STREAM, 0);
+    if (listening == INVALID_SOCKET) {
+        cerr << "Soket oluşturulamadı! Çıkılıyor..." << endl;
+        return 0;
+    }
+
+    // IP ve port'u sokete bağla
+    sockaddr_in hint;
+    hint.sin_family = AF_INET;
+    hint.sin_port = htons(5004);
+    hint.sin_addr.S_un.S_addr = INADDR_ANY;
+
+    bind(listening, (sockaddr*)&hint, sizeof(hint));
+
+    // Winsock'a dinlemesi için bildir
+    listen(listening, SOMAXCONN);
+
+    // Bağlantı bekleniyor
+    sockaddr_in client;
+    int clientSize = sizeof(client);
+    SOCKET clientSocket = accept(listening, (sockaddr*)&client, &clientSize);
+    
+
+    char host[NI_MAXHOST]; // İstemcinin adı
+    char service[NI_MAXSERV]; // İstemci bağlandığında IP:PORT hizmeti
+
+    ZeroMemory(host, NI_MAXHOST); // host dizisini temizleme (memset gibi)
+    ZeroMemory(service, NI_MAXSERV);
+
+    if (getnameinfo((sockaddr*)&client, sizeof(client), host, NI_MAXHOST, service, NI_MAXSERV, 0) == 0) {
+        cout << host << " bağlandı, port: " << service << endl;
+    }
+    else {
+        inet_ntop(AF_INET, &client.sin_addr, host, NI_MAXHOST);
+        cout << host << " bağlandı, port: " << ntohs(client.sin_port) << endl;
+    }
+
+    // Dinleme soketini kapat
+    closesocket(listening);
+
+    // İstemciden gelen veriyi al
+    ClientData clientData;
+    int bytesReceived = recv(clientSocket, (char*)&clientData, sizeof(clientData), 0);
+    if (bytesReceived == SOCKET_ERROR) {
+        cerr << "recv() hatası. Çıkılıyor." << endl;
+        closesocket(clientSocket);
+        WSACleanup();
+        return 1;
+    }
+    
+    // İstemci bilgilerini işle
+    processClientData(clientData);
+
+    // Diğer işlemler...
+
+    string fileName = "D:/masaüstü/banka.txt";  // Dosya adi
+    vector<UserData> userDataList = parseFile(fileName);
+
+    if (userDataList.empty()) {
+        return 1;
+    }
+
+
+
+    string kullaniciAdi, parola;
+    kullaniciAdi = clientData.kullaniciAdi;
+    parola = clientData.parola;
+
+   
+    getUserDataByCredentials(userDataList, clientData.kullaniciAdi,clientData.parola);
+    // Yanıtı istemciye gönder
+    int sendResult = send(clientSocket, (char*)&response, sizeof(response), 0);
+
+    if (sendResult == SOCKET_ERROR) {
+        cerr << "Yanıt gönderilemedi, hata kodu: " << WSAGetLastError() << endl;
+    }
+    queryBalanceAndSendToClient(userDataList, clientSocket, kullaniciAdi); //hesap bakiyesi sorgular. 
+
+    int receivedNum;
+    
+    bytesReceived = recv(clientSocket, (char*)&receivedNum, sizeof(receivedNum), 0);
+
+    // Sunucu tarafında, istemciden gelen bilgileri işle
+    TransactionData receivedTransactionData;
+
+    // İstemciden gelen veriyi al
+    int bytesReceived2 = recv(clientSocket, (char*)&receivedTransactionData, sizeof(receivedTransactionData), 0);
+    if (bytesReceived2 == SOCKET_ERROR) {
+        cerr << "Veri alınamadı, hata kodu: " << WSAGetLastError() << endl;
+    }
+    else if (bytesReceived2 == 0) {
+        cout << "İstemci bağlantısı kapandı." << endl;
+    }
+    else {
+        // İstemciden gelen bilgilerle işlem yap
+        if (receivedNum == 1) {
+            // Para gönderme işlemi
+            cout << "İstemciden gelen para gönderme bilgileri:" << endl;
+            cout << "Gönderilecek miktar: " << receivedTransactionData.miktar << endl;
+            cout << "Hedef hesap numarası: " << receivedTransactionData.hesapNo << endl;
+
+
+            paraGonder(userDataList, kullaniciAdi, receivedTransactionData.miktar, receivedTransactionData.hesapNo);
+            sendCompletionMessage(clientSocket);
+            cout << queryBalanceAndSendToClient(userDataList, clientSocket, kullaniciAdi) << endl;
+            // Burada para gönderme işlemini gerçekleştir
+            // Örneğin: paraGonder(receivedTransactionData.miktar, receivedTransactionData.hesapNo);
+        }
+        else if (receivedNum == 2) {
+            // Para çekme işlemi
+            cout << "İstemciden gelen para çekme bilgileri:" << endl;
+            cout << "Çekilecek miktar: " << receivedTransactionData.miktar << endl;
+
+            // Burada para çekme işlemini gerçekleştir
+            paraCek(userDataList, kullaniciAdi, receivedTransactionData.miktar);
+            sendCompletionMessage(clientSocket);
+            cout << queryBalanceAndSendToClient(userDataList, clientSocket, kullaniciAdi) << endl;
+            // Örneğin: paraCek(receivedTransactionData.miktar);
+        }
+        else if (receivedNum == 3) {
+            // Para yatırma işlemi
+            cout << "İstemciden gelen para yatırma bilgileri:" << endl;
+            cout << "Yatırılan miktar: " << receivedTransactionData.miktar << endl;
+
+            // Burada para yatırma işlemini gerçekleştir
+            paraYatir(userDataList, kullaniciAdi, receivedTransactionData.miktar);
+            sendCompletionMessage(clientSocket);
+            cout << queryBalanceAndSendToClient(userDataList, clientSocket, kullaniciAdi) << endl;
+            // Örneğin: paraYatir(receivedTransactionData.miktar);
+        }
+        else {
+            cout << "Hatalı numara girdisi." << endl;
+        }
+    }
+
+    
+
+   
+    
+    // Soketi kapat
+    closesocket(clientSocket);
+
+    // Winsock temizleme
+    WSACleanup();
+
+    system("pause");
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
