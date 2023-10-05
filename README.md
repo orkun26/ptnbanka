@@ -1,5 +1,8 @@
 
-görev tanımı :
+
+https://www.youtube.com/watch?v=OuzCIaxCZ5w   --> Proje Anlatım Videosu //OOZTURK
+
+ Piton görev tanımı :
 
 Merhaba Orkun;
 
